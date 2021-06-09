@@ -221,7 +221,7 @@ static const long double Q[5] = {
                                 };
 //-----------------------------------------------------------------
 
-register int i;
+int i;
 long double del,x,xden,xnum,y,ysq;
 long double result;
 
