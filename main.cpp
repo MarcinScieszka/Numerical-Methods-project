@@ -8,7 +8,7 @@
  *  Application of differential methods to an approximate solution of the diffusion equation with initial condition and boundary conditions.
  *
  *  Algorithms used:
- *  - FTCS Explicit Method
+ *  - FTCS Method
  *  - Laasonen method using LU decomposition
  *  - Laasonen method using Thomas algorithm
  *
@@ -23,31 +23,34 @@ double const T_MAX = 2.0; // max time
 double const r = 1.0; // radius of the sphere
 double const a = 10.0; // domain length
 double const X_MIN = r; // x - spatial coordinate
-double const X_MAX = (r + a);
-
-//lambda = D*(dt/h*h) => dt=
-const double lambda_dm = 0.4; // lambda value used for direct methods, NOTE: beware of numerical stability limitations - method stable only when lambda < 0.5
-const double lambda_im = 1.0; // lambda value used for for indirect methods
-
-//double analytical_solution(double x, double t);
+double const X_MAX = r + a;
+double const lambda_dm = 0.4; // lambda value used for direct methods, NOTE: beware of numerical stability limitations - method stable only when lambda < 0.5
+double const lambda_im = 1.0; // lambda value used for for indirect methods, NOTE: lambda = D*(dt/h*h)
 
 double **allocate_matrix(int rows, int cols);
 void print_matrix(double *const *matrix, int rows, int cols);
 void free_matrix(double *const *matrix, int rows);
-
 void print_array(double *array, int size);
 void fill_array(double *array, int size, double value);
-
 void fill_matrix(double **matrix, int rows, int cols, double value);
+double analytical_solution(double tk, double xi);
+double find_max_error(double tk, double h, int nodes_x, int k, double *const *u);
+void ftcs_method();
 
 int main()
 {
+    ftcs_method();
+
+    return 0;
+}
+
+void ftcs_method()
+{
     double dt; // delta t
     double h; // step h on the spatial grid, delta x
-    double tk; // current time on the time grid
+    double tk; // current time on the time grid, NOTE: dt = T_MAX/(nodes_t-1)
     double xi; // current point on the spatial grid
-
-//    ----- FTCS_explicit_method ----
+    int i=0, k=0;
 
     std::ofstream result_file("results_FTCS.txt");
     if(!result_file)
@@ -56,75 +59,75 @@ int main()
         exit(1);
     }
 
-    int nodes_x = 15; // nr of nodes on the time grid
-    int nodes_t = 15;//4; // nr of nodes on the spacial grid
+    int nodes_x; // nr of nodes on the time grid, NOTE: for 101 nodes h=0.1
+    int nodes_t; // nr of nodes on the spacial grid, NOTE: for 21 nodes dt=0.1
 
-    auto* ic_array = new double[nodes_x];  // initial condition array
-    fill_array(ic_array, nodes_x, 1.0); // filling values from initial condition
-    print_array(ic_array, nodes_x);
-
-    double **u = allocate_matrix(nodes_t, nodes_x); // matrix of approximate values
-    fill_matrix(u, nodes_t, nodes_x, 0.0);
-    print_matrix(u, nodes_t, nodes_x);
-    int i, k;
-    for (i=0; i<nodes_x; i++) u[0][i] = ic_array[i];
-    print_matrix(u, nodes_t, nodes_x);
-
-    for (k=0; k<nodes_t-1; k++)
+    for(nodes_x = 21; nodes_x<101; nodes_x+=5)
     {
-        for (i=1; i<nodes_x-1; i++)
-        {
-            u[k+1][i] = lambda_dm*u[k][i-1] + (1-lambda_dm)*u[k][i] + lambda_dm*u[k][i+1]; // approximate solution at node x_i at time level t_k+1
+        auto *ic_array = new double[nodes_x];  // initial condition array
+        fill_array(ic_array, nodes_x, 1.0); // filling values from initial condition
+
+        h = a / (nodes_x - 1);
+        dt = (lambda_dm * h * h) / D; //NOTE: to calculate dt based on current spacial step h we use formula: dt=(lambda*h*h)/D
+        nodes_t = int(T_MAX / dt);
+        std::cout << std::endl << "dt: " << dt << ", " << "nr of t nodes: " << nodes_t << std::endl;
+        std::cout << "h: " << h << ", " << "nr of x nodes: " << nodes_x << std::endl;
+
+        double **u = allocate_matrix(nodes_t, nodes_x); // matrix of approximate values
+        fill_matrix(u, nodes_t, nodes_x, 0.0);
+
+        for (i = 0; i < nodes_x; i++) u[0][i] = ic_array[i];
+
+        for (k = 0; k < nodes_t - 1; k++) {
+            for (i = 1; i < nodes_x -
+                            2; i++) // we omit first and last i - values there are already determined from the initial condition
+            {
+                u[k + 1][i] = lambda_dm * u[k][i - 1] + (1 - lambda_dm) * u[k][i] +
+                              lambda_dm * u[k][i + 1]; // approximate solution at node x_i at time level t_k+1
+            }
+            u[k + 1][0] = 0.0; // first boundary condition
+            u[k + 1][nodes_x - 1] =
+                    1.0 - (r / (r + a)) * calerf::ERFCL(a / (2.0 * sqrt(D * (k + 1)))); // second boundary condition
         }
-        u[k+1][0] = 0.0; // first boundary condition
-        u[k+1][nodes_x-1] = 1.0 - (r/(r+a))*calerf::ERFCL(a/(2.0*sqrt(D*(k+1)))); // second boundary condition
+        /**
+         * dependence of the maximum absolute value of the error observed for T_MAX as a function of the spatial step h
+         * TODO: save to file results for T_MAX and range of h's
+         **/
+        tk = T_MAX;
+        k = nodes_t - 1;
+        //(double tk, double h, int nodes_x, int k, double *const *u)
+        double max_error = find_max_error(tk, h, nodes_x, k, u);
+        std::cout << "max error: " << max_error << std::endl;
+
+        delete[] ic_array;
+        free_matrix(u, nodes_t);
     }
-    print_matrix(u, nodes_t, nodes_x);
-
-//    h = a/(nodes_x-1);
-//    dt = T_MAX/(nodes_t-1);
-
-//    double H_MIN = 1e-2;
-//    int counter = 0;
-//    while (h>H_MIN)
-//    {
-//        std::cout << "\nh: ";
-//        std::cout << h << ", ";
-//        std::cout << "\ndt: ";
-//        std::cout << dt << ", ";
-//        nodes_x *= 2;
-//        nodes_t *= 2;
-//        printf(" - nodes: %d \n", nodes_x);
-//
-////        u[i][k] = (h, tk);
-//
-//        counter++;
-//        h = a/(nodes_x-1);
-//        dt = T_MAX/(nodes_t-1);
-//    }
-//    std::cout << counter << "\n";
-
-
-//    for (xi=X_MIN; xi<X_MAX; xi+=h)
-//    {
-//        continue;
-//    }
-
-    /**
-     * TODO: dependence of the maximum absolute value of the error observed for T_MAX as a function of the spatial step h
-     **/
-
-//    tk = T_MAX - dt;
 
     result_file.close();
-
-    delete[] ic_array;
-    free_matrix(u, nodes_t);
-
-    return 0;
 }
 
-double analytical_solution(double xi, double tk)
+double find_max_error(double tk, double h, int nodes_x, int k, double *const *u)
+{
+    double max_error = 0.0;
+    double error;
+    double xi = X_MIN + h;
+
+    for (int i=1; i<nodes_x-2; i++)
+    {
+        error = fabs(u[k][i]- analytical_solution(tk, xi));
+//        std::cout << "err: i=" << i << " : "<< error << " \n";
+        if (error > max_error)
+        {
+            max_error = error;
+//            std::cout << "max:" << max_error << " \n";
+        }
+        xi += h;
+    }
+
+    return max_error;
+}
+
+double analytical_solution(double tk, double xi)
 {
     return 1.0 - (r/xi)*double(calerf::ERFCL((xi-r)/(2.0*sqrt(D*tk))));
 }
