@@ -1,7 +1,8 @@
 #include <iostream>
 #include <iomanip>
 #include "calerf.h"
-#include "cmath"
+#include <cmath>
+#include <fstream>
 
 /**
  *  Application of differential methods to an approximate solution of the diffusion equation with initial condition and boundary conditions.
@@ -13,7 +14,7 @@
  *
  *  Initial condition: U(x,0) = 1
  *  First boundary condition: U(r,t) = 0
- *  Second boundary condition: U(r+a, t) = 1.0 - (r/(r+a))*calerf::ERFCL(a/(2.0*sqrt(D*t)));
+ *  Second boundary condition: U(r+a, t) = 1.0 - (r/(r+a))*erfc(a/(2.0*sqrt(D*t)))
  * */
 
 double const D = 1.0; // diffusion coefficient
@@ -47,11 +48,19 @@ int main()
     double xi; // current point on the spatial grid
 
 //    ----- FTCS_explicit_method ----
+
+    std::ofstream result_file("results_FTCS.txt");
+    if(!result_file)
+    {
+        std::cerr << "Error: file could not be opened" << std::endl;
+        exit(1);
+    }
+
     int nodes_x = 15; // nr of nodes on the time grid
-    int nodes_t = 4; // nr of nodes on the spacial grid
+    int nodes_t = 15;//4; // nr of nodes on the spacial grid
 
     auto* ic_array = new double[nodes_x];  // initial condition array
-    fill_array(ic_array, nodes_x, 1.0);
+    fill_array(ic_array, nodes_x, 1.0); // filling values from initial condition
     print_array(ic_array, nodes_x);
 
     double **u = allocate_matrix(nodes_t, nodes_x); // matrix of approximate values
@@ -67,13 +76,13 @@ int main()
         {
             u[k+1][i] = lambda_dm*u[k][i-1] + (1-lambda_dm)*u[k][i] + lambda_dm*u[k][i+1]; // approximate solution at node x_i at time level t_k+1
         }
+        u[k+1][0] = 0.0; // first boundary condition
+        u[k+1][nodes_x-1] = 1.0 - (r/(r+a))*calerf::ERFCL(a/(2.0*sqrt(D*(k+1)))); // second boundary condition
     }
     print_matrix(u, nodes_t, nodes_x);
 
-
 //    h = a/(nodes_x-1);
 //    dt = T_MAX/(nodes_t-1);
-
 
 //    double H_MIN = 1e-2;
 //    int counter = 0;
@@ -106,6 +115,8 @@ int main()
      **/
 
 //    tk = T_MAX - dt;
+
+    result_file.close();
 
     delete[] ic_array;
     free_matrix(u, nodes_t);
@@ -161,7 +172,7 @@ void print_matrix(double *const *matrix, const int rows, const int cols)
     {
         for (int j=0; j<cols; j++)
         {
-            std::cout << matrix[i][j] << std::setw(7);
+            std::cout << matrix[i][j] << std::setw(8);
         }
         std::cout  << "\n";
     }
