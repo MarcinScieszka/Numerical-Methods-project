@@ -59,8 +59,9 @@ void ftcs_method()
 
     std::cout.setf(std::ios::fixed);
     std::ofstream FTCS_h_errors("FTCS_h-dependent_errors.txt");
+    std::ofstream FTCS_t_errors("FTCS_t-dependent_errors.txt");
     std::ofstream FTCS_results("FTCS_results.txt");
-    if(!FTCS_h_errors || !FTCS_results)
+    if(!FTCS_h_errors || !FTCS_results || !FTCS_t_errors)
     {
         std::cerr << "Error: file could not be opened" << std::endl;
         exit(1);
@@ -69,8 +70,8 @@ void ftcs_method()
     FTCS_h_errors << "h max_err\n";
     FTCS_results << "h approx_res analytical_res\n";
 
-    for(nodes_x = 51; nodes_x<1501; nodes_x+=50)
-//    for(nodes_x = 1001; nodes_x<1002; nodes_x+=50)
+//    for(nodes_x = 31; nodes_x<1501; nodes_x+=10)
+    for(nodes_x = 21; nodes_x<22; nodes_x+=50) // 1001 nodes -> h=0.01
     {
         h = a / (nodes_x - 1);
         nodes_t = static_cast<int>((T_MAX-T_0) / ((lambda_dm * h * h) / D)) + 1;
@@ -93,10 +94,10 @@ void ftcs_method()
                 res_a = analytical_solution(tk+dt, xi);
 
                 /**
-                 * data to plot numerical and analytical solutions for a few selected values of time t from the whole interval t
+                 * data to plot numerical and analytical solutions for a few selected values of time t from the whole interval t - plotted using 1001 x nodes
                  * */
 //                if (k == 0) {FTCS_results << xi << " " << res_u << " " << res_a << "\n";} //results for T_0
-//                if (k == ((nodes_t - 1)/2)) {FTCS_results << xi << " " << res_u << " " << res_a << "\n";} // results in the middle of the time interval
+                if (k == ((nodes_t - 1)/2)) {FTCS_results << xi << " " << res_u << " " << res_a << "\n";} // results in the middle of the time interval
 //                if (k == nodes_t - 2) {FTCS_results << xi << " " << res_u << " " << res_a << "\n";} //results for T_MAX
 //                if (k == 12500) {FTCS_results << xi << " " << res_u << " " << res_a << "\n";} //results for T=0.5
 //                if (k == 37500) {FTCS_results << xi << " " << res_u << " " << res_a << "\n";} //results for T=1.5
@@ -105,6 +106,11 @@ void ftcs_method()
             }
             u[k + 1][nodes_x - 1] = second_boundary_condition(tk, dt);
             tk += dt;
+
+            /**
+             * results saved to file for plotting dependence of the maximum absolute value of the error observed for optimal h as a function of the time
+             */
+            FTCS_t_errors << tk << " " << find_max_error(tk, h, nodes_x, k+1, u) << "\n";
         }
 
         /**
