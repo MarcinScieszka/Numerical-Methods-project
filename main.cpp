@@ -69,8 +69,8 @@ void ftcs_method()
     FTCS_h_errors << "h max_err\n";
     FTCS_results << "h approx_res analytical_res\n";
 
-//    for(nodes_x = 51; nodes_x<501; nodes_x+=50)
-    for(nodes_x = 1001; nodes_x<1002; nodes_x+=50)
+    for(nodes_x = 51; nodes_x<1501; nodes_x+=50)
+//    for(nodes_x = 1001; nodes_x<1002; nodes_x+=50)
     {
         h = a / (nodes_x - 1);
         nodes_t = static_cast<int>((T_MAX-T_0) / ((lambda_dm * h * h) / D)) + 1;
@@ -78,7 +78,6 @@ void ftcs_method()
 
         double **u = allocate_matrix(nodes_t, nodes_x); // matrix of approximate values
         fill_array(u[0], nodes_x, 1.0); // filling values from initial condition
-
 
         tk = T_0;
         for(k = 0; k < nodes_t - 1; k++)
@@ -88,14 +87,19 @@ void ftcs_method()
             xi += h;
             for(i = 1; i < nodes_x - 1; i++) // first and last i omitted - values already determined from the initial condition
             {
-                res_u = u[k + 1][i] = lambda_dm * u[k][i - 1] + (1.0 - 2.0*lambda_dm) * u[k][i] + lambda_dm * u[k][i + 1];
+//                res_u = u[k + 1][i] = lambda_dm * u[k][i - 1] + (1.0 - 2.0*lambda_dm) * u[k][i] + lambda_dm * u[k][i + 1];
+                u[k + 1][i] = u[k][i] + lambda_dm * (u[k][i - 1] - 2.0*u[k][i] + u[k][i + 1]);
+                res_u = u[k + 1][i];
                 res_a = analytical_solution(tk+dt, xi);
 
+                /**
+                 * data to plot numerical and analytical solutions for a few selected values of time t from the whole interval t
+                 * */
 //                if (k == 0) {FTCS_results << xi << " " << res_u << " " << res_a << "\n";} //results for T_0
 //                if (k == ((nodes_t - 1)/2)) {FTCS_results << xi << " " << res_u << " " << res_a << "\n";} // results in the middle of the time interval
 //                if (k == nodes_t - 2) {FTCS_results << xi << " " << res_u << " " << res_a << "\n";} //results for T_MAX
 //                if (k == 12500) {FTCS_results << xi << " " << res_u << " " << res_a << "\n";} //results for T=0.5
-                if (k == 37500) {FTCS_results << xi << " " << res_u << " " << res_a << "\n";} //results for T=1.5
+//                if (k == 37500) {FTCS_results << xi << " " << res_u << " " << res_a << "\n";} //results for T=1.5
 
                 xi += h;
             }
