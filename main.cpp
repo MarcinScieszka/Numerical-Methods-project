@@ -62,6 +62,20 @@ void lm_ta()
     double gamma; double theta;
     int i, k;
 
+    std::cout.setf(std::ios::fixed);
+    std::ofstream LM_TA_results("LM_TA_results.txt");
+    std::ofstream LM_TA_h_errors("LM_TA_h-dependent_errors.txt");
+    std::ofstream LM_TA_t_errors("LM_TA_t-dependent_errors.txt");
+    if( !LM_TA_results || !LM_TA_h_errors || !LM_TA_t_errors)
+    {
+        std::cerr << "Error: file could not be opened" << std::endl;
+        exit(1);
+    }
+
+    LM_TA_results << "h approx_res analytical_res\n";
+    LM_TA_h_errors << "h max_err\n";
+    LM_TA_t_errors << "t max_err\n";
+
     for(nodes_x = 11; nodes_x < 12; nodes_x += 10)
     {
         auto *u = new double[nodes_x - 1]; // upper diagonal of the tridiagonal  matrix
@@ -92,8 +106,8 @@ void lm_ta()
             {
                 xi += h;
                 d[i] = -(1.0 + 2.0 * lambda_im);
-                u[i] = lambda_im;
-                l[i] = lambda_im;
+                u[i] = lambda_im * (1.0 + (h/xi));
+                l[i] = lambda_im * (1.0 - (h/xi));
                 b[i] = -y[i];
             }
 
@@ -111,6 +125,9 @@ void lm_ta()
 
         delete[] u; delete[] d; delete[] l; delete[] b; delete[] eta; delete[] y;
     }
+    LM_TA_results.close();
+    LM_TA_h_errors.close();
+    LM_TA_t_errors.close();
 }
 
 void Thomas_algorithm(double *y, const double *eta, const double *u, const double *l, const double *b, int nodes_x)
@@ -211,7 +228,7 @@ void ftcs_method()
             /**
              * results saved to file for plotting dependence of the maximum absolute value of the error observed for optimal h as a function of the time
              */
-            FTCS_t_errors << tk << " " << find_max_error(tk, h, nodes_x, k+1, u) << "\n";
+//            FTCS_t_errors << tk << " " << find_max_error(tk, h, nodes_x, k+1, u) << "\n";
         }
 
         /**
