@@ -170,8 +170,9 @@ void ftcs_method()
         exit(1);
     }
 
-    FTCS_h_errors << "h max_err\n";
     FTCS_results << "h approx_res analytical_res\n";
+    FTCS_h_errors << "h max_err\n";
+    FTCS_t_errors << "t max_err\n";
 
 //    for(nodes_x = 21; nodes_x<2001; nodes_x+=20)
     for(nodes_x = 1001; nodes_x<1002; nodes_x+=50) // 1001 nodes -> h=0.01
