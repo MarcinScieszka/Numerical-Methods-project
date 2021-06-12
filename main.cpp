@@ -47,12 +47,12 @@ int main()
 
 void ftcs_method()
 {
-    double dt; // delta t
-    double h; // step h on the spatial grid, delta x
-    double tk; // current time on the time grid
-    double xi; // current position on the spatial grid
     int nodes_x; // nr of nodes on the time grid, NOTE: for 201 nodes h=0.05
     int nodes_t; // nr of nodes on the spacial grid, NOTE: for 201 nodes dt=0.01
+    double h; // step h on the spatial grid, delta x
+    double dt; // delta t
+    double tk; // current time on the time grid
+    double xi; // current position on the spatial grid
     double res_u; // approximate result at node x_i at time level t_k+1
     double res_a; // analytical result
     int i, k;
@@ -122,6 +122,7 @@ void ftcs_method()
     }
 
     FTCS_h_errors.close();
+    FTCS_t_errors.close();
     FTCS_results.close();
 }
 
