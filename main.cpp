@@ -44,10 +44,12 @@ void fill_matrix(double **matrix, int rows, int cols, double value);
 
 void determine_eta(double *eta, const double *u, const double *d, const double *l, int nodes_x);
 
+void Thomas_algorithm(double *y, const double *eta, const double *u, const double *l, const double *b, int nodes_x);
+
 int main()
 {
-    ftcs_method();
-//    lm_ta();
+//    ftcs_method();
+    lm_ta();
 
     return 0;
 }
@@ -57,51 +59,84 @@ void lm_ta()
     int nodes_x; int nodes_t;
     double h; double dt;
     double tk; double xi;
-    double alpha; double beta; double gamma;
-    double phi; double psi; double theta;
-    int i;
+    double gamma; double theta;
+    int i, k;
 
-    for(nodes_x = 11; nodes_x<12; nodes_x+=10)
+    for(nodes_x = 11; nodes_x < 12; nodes_x += 10)
     {
-        h = a / (nodes_x - 1);
-        nodes_t = static_cast<int>((T_MAX-T_0) / ((lambda_im * h * h) / D)) + 1;
-        dt = T_MAX/(nodes_t-1);
-        tk = T_0;
-
-        auto *u = new double[nodes_x-1]; // upper diagonal of the tridiagonal  matrix
+        auto *u = new double[nodes_x - 1]; // upper diagonal of the tridiagonal  matrix
         auto *d = new double[nodes_x]; // principal (main) diagonal of the tridiagonal  matrix
-        auto *l = new double[nodes_x-1]; // lower diagonal of the tridiagonal  matrix
+        auto *l = new double[nodes_x - 1]; // lower diagonal of the tridiagonal  matrix
         auto *b = new double[nodes_x];
         auto *eta = new double[nodes_x];
         auto *y = new double[nodes_x]; // solution vector
 
-        fill_array(y, nodes_x, get_initial_condition());
+        h = a / (nodes_x - 1);
+        nodes_t = static_cast<int>((T_MAX - T_0) / ((lambda_im * h * h) / D)) + 1;
+        dt = T_MAX / (nodes_t - 1);
+        tk = T_0;
 
-        gamma = get_gamma();
-        theta = get_theta(tk, dt);
-
-        d[0] = 1.0;
-        u[0] = 0.0;
-        b[0] = -gamma;
-
-        for(i=1; i<nodes_x-1; i++)
+        for (k = 0; k < nodes_t; k++)
         {
-            d[i] = -(1.0 + 2.0*lambda_im);
-            u[i] = lambda_im;
-            l[i] = lambda_im;
-            b[i] = -y[i];
+            xi = X_MIN;
+            fill_array(y, nodes_x, get_initial_condition());
+
+            gamma = get_gamma();
+            theta = get_theta(tk, dt);
+
+            d[0] = 1.0;
+            u[0] = 0.0;
+            b[0] = -gamma;
+
+            for (i = 1; i < nodes_x-1; i++)
+            {
+                xi += h;
+                d[i] = -(1.0 + 2.0 * lambda_im);
+                u[i] = lambda_im;
+                l[i] = lambda_im;
+                b[i] = -y[i];
+            }
+
+            d[nodes_x-1] = 1.0;
+            l[nodes_x-2] = 0.0;
+            b[nodes_x-1] = -theta;
+
+            determine_eta(eta, u, d, l, nodes_x); // determining the vector eta
+
+            Thomas_algorithm(y, eta, u, l, b, nodes_x);
+
+            tk += dt;
         }
-
-        d[nodes_x-1] = 1.0;
-        l[nodes_x-2] = 0.0;
-        b[nodes_x-1] = -theta;
-
-        determine_eta(eta, u, d, l, nodes_x); // determining the vector eta
-        print_array(eta, nodes_x);
+        print_array(y, nodes_x);
 
         delete[] u; delete[] d; delete[] l; delete[] b; delete[] eta; delete[] y;
     }
+}
 
+void Thomas_algorithm(double *y, const double *eta, const double *u, const double *l, const double *b, int nodes_x)
+{
+    int i;
+    auto *r = new double[nodes_x];
+
+    /**
+     * determining the vector r
+     * */
+    r[0] = b[0];
+    for(i=1; i<nodes_x; i++)
+    {
+        r[i] = b[i] - l[i - 1] * (1.0 / eta[i - 1]) * r[i - 1];
+    }
+
+    /**
+     * determining the vector y
+     * */
+    y[nodes_x-1] = (1.0/eta[nodes_x-1]) * r[nodes_x-1];
+    for(i=nodes_x-2; i>=0; i--)
+    {
+        y[i] = (1.0/eta[i]) * (r[i] - (u[i]*y[i+1]));
+    }
+
+    delete[] r;
 }
 
 void determine_eta(double *eta, const double *u, const double *d, const double *l, int nodes_x)
