@@ -27,22 +27,91 @@ double const X_MAX = r + a;
 double const lambda_dm = 0.4; // lambda value used for direct methods, NOTE: beware of numerical stability limitations - method stable only when lambda < 0.5
 double const lambda_im = 1.0; // lambda value used for for indirect methods, NOTE: lambda = D*(dt/h*h)
 
+void ftcs_method(); // Forward Time Centered Space Method
+void lm_ta(); // Laasonen method using Thomas algorithm
+double analytical_solution(double tk, double xi);
+double get_initial_condition();
+double get_second_boundary_condition(double tk, double dt);
+double get_first_boundary_condition();
+double find_max_error(double tk, double h, int nodes_x, int k, double *const *u);
+double get_alpha();
+double get_beta();
+double get_gamma();
+double get_phi();
+double get_psi();
+double get_theta(double tk, double dt);
 double **allocate_matrix(int rows, int cols);
 void free_matrix(double *const *matrix, int rows);
 void print_array(double *array, int size, int print_width=6);
 void fill_array(double *array, int size, double value);
 void fill_matrix(double **matrix, int rows, int cols, double value);
-double analytical_solution(double tk, double xi);
-double second_boundary_condition(double tk, double dt);
-double first_boundary_condition();
-double find_max_error(double tk, double h, int nodes_x, int k, double *const *u);
-void ftcs_method();
 
 int main()
 {
-    ftcs_method();
+//    ftcs_method();
+    lm_ta();
 
     return 0;
+}
+
+void lm_ta()
+{
+    int nodes_x; int nodes_t;
+    double h; double dt;
+    double tk; double xi;
+    double alpha; double beta; double gamma;
+    double phi; double psi; double theta;
+    int i;
+
+    for(nodes_x = 11; nodes_x<12; nodes_x+=10)
+    {
+        h = a / (nodes_x - 1);
+        nodes_t = static_cast<int>((T_MAX-T_0) / ((lambda_im * h * h) / D)) + 1;
+        dt = T_MAX/(nodes_t-1);
+        tk = T_0;
+
+        auto *u = new double[nodes_x-1]; // upper diagonal of the tridiagonal  matrix
+        auto *d = new double[nodes_x]; // principal (main) diagonal of the tridiagonal  matrix
+        auto *l = new double[nodes_x-1]; // lower diagonal of the tridiagonal  matrix
+        auto *b = new double[nodes_x];
+        auto *eta = new double[nodes_x];
+        auto *y = new double[nodes_x]; // solution vector
+
+        fill_array(y, nodes_x, get_initial_condition());
+
+
+        /**
+         * obtaining values from given functions from boundary conditions
+         * */
+        alpha = get_alpha();
+        beta = get_beta();
+        gamma = get_gamma();
+        phi = get_phi();
+        psi = get_psi();
+        theta = get_theta(tk, dt);
+
+        d[0] = -alpha/h + beta;
+        u[0] = alpha/h;
+        l[0] = 0.0;
+        b[0] = -gamma;
+
+        for(i=1; i<nodes_x-1; i++)
+        {
+            d[i] = -(1.0 + 2.0*lambda_im);
+            u[i] = lambda_im;
+            l[i] = lambda_im;
+            b[i] = -y[i];
+        }
+
+        u[nodes_x-2] = 0.0;
+        d[nodes_x-1] = phi/h + psi;
+        l[nodes_x-2] = -phi/h;
+        b[nodes_x-1] = -theta;
+
+
+        delete[] u; delete[] d; delete[] l; delete[] b; delete[] eta; delete[] y;
+    }
+
 }
 
 void ftcs_method()
@@ -78,20 +147,20 @@ void ftcs_method()
         dt = T_MAX/(nodes_t-1);
 
         double **u = allocate_matrix(nodes_t, nodes_x); // matrix of approximate values
-        fill_array(u[0], nodes_x, 1.0); // filling values from initial condition
+        fill_array(u[0], nodes_x, get_initial_condition()); // filling values from initial condition
 
         tk = T_0;
         for(k = 0; k < nodes_t - 1; k++)
         {
             xi = X_MIN;
-            u[k + 1][0] = first_boundary_condition();
+            u[k + 1][0] = get_first_boundary_condition();
             xi += h;
             for(i = 1; i < nodes_x - 1; i++) // first and last i omitted - values already determined from the initial condition
             {
 //                res_u = u[k + 1][i] = lambda_dm * u[k][i - 1] + (1.0 - 2.0*lambda_dm) * u[k][i] + lambda_dm * u[k][i + 1];
                 u[k + 1][i] = u[k][i] + lambda_dm * (u[k][i - 1] - 2.0*u[k][i] + u[k][i + 1]);
                 res_u = u[k + 1][i];
-                res_a = analytical_solution(tk+dt, xi);
+                res_a = analytical_solution(tk + dt, xi);
 
                 /**
                  * data to plot numerical and analytical solutions for a few selected values of time t from the whole interval t - plotted using 1001 x nodes
@@ -104,7 +173,7 @@ void ftcs_method()
 
                 xi += h;
             }
-            u[k + 1][nodes_x - 1] = second_boundary_condition(tk, dt);
+            u[k + 1][nodes_x - 1] = get_second_boundary_condition(tk, dt);
             tk += dt;
 
             /**
@@ -125,6 +194,18 @@ void ftcs_method()
     FTCS_t_errors.close();
     FTCS_results.close();
 }
+
+double get_theta(double tk, double dt) { return 1.0 - (r / (r + a)) * static_cast<double>(calerf::ERFCL(a / (2.0 * sqrt(D * (tk + dt))))); }
+
+double get_psi() { return 0.0; }
+
+double get_phi() { return 0.0; }
+
+double get_gamma() { return 0.0; }
+
+double get_beta() { return 0.0; }
+
+double get_alpha() { return 0.0; }
 
 double find_max_error(double tk, double h, int nodes_x, int k, double *const *u)
 {
@@ -151,14 +232,13 @@ double find_max_error(double tk, double h, int nodes_x, int k, double *const *u)
     return max_error;
 }
 
-double analytical_solution(double tk, double xi)
-{
-    return 1.0 - (r/xi)*static_cast<double>(calerf::ERFCL((xi-r)/(2.0*sqrt(D*tk))));
-}
+double analytical_solution(double tk, double xi) { return 1.0 - (r / xi) * static_cast<double>(calerf::ERFCL((xi - r) / (2.0 * sqrt(D * tk)))); }
 
-double first_boundary_condition() { return 0.0; }
+double get_initial_condition() { return 1.0; }
 
-double second_boundary_condition(double tk, double dt) { return 1.0 - (r / (r + a)) * static_cast<double>(calerf::ERFCL(a / (2.0 * sqrt(D * (tk + dt))))); }
+double get_first_boundary_condition() { return 0.0; }
+
+double get_second_boundary_condition(double tk, double dt) { return 1.0 - (r / (r + a)) * static_cast<double>(calerf::ERFCL(a / (2.0 * sqrt(D * (tk + dt))))); }
 
 void fill_array(double *array, int size, double value)
 {
