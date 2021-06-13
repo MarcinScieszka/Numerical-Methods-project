@@ -51,6 +51,8 @@ void free_matrix(double *const *matrix, int rows);
 void print_array(double *array, int size, int print_width=10);
 void fill_array(double *array, int size, double value);
 
+void LU_solve(int nodes_x, const int *id_vector, double *const *A, double *const *L, const double *b, double *x);
+
 int main()
 {
 //    ftcs_method();
@@ -77,12 +79,12 @@ void lm_lu()
 
     std::cout.setf(std::ios::fixed);
 
-    nodes_x = 10;
+    nodes_x = 21;
 
-    auto *id_vector = new int[nodes_x]; // indexes vector
     double **A = allocate_matrix(nodes_x, nodes_x);
     double **L = allocate_matrix(nodes_x, nodes_x);
     double **U = allocate_matrix(nodes_x, nodes_x);
+    auto *id_vector = new int[nodes_x]; // indexes vector
     auto *b = new double[nodes_x];
     auto *x = new double[nodes_x]; // solution vector
 
@@ -121,8 +123,11 @@ void lm_lu()
     A[nodes_x-1][nodes_x-2] = -phi/h; // last element of lower diagonal
     b[nodes_x-1] = theta;
 
-
     LU_decompose(nodes_x, id_vector, A, L, U);
+
+    LU_solve(nodes_x, id_vector, A, L, b, x);
+
+    print_array(x, nodes_x);
 
     delete[] id_vector; delete[] b; delete[] x;
     free_matrix(A, nodes_x); free_matrix(L, nodes_x); free_matrix(U, nodes_x);
@@ -192,6 +197,44 @@ void LU_decompose(int nodes_x, int *id_vector, double **A, double **L, double **
         //matrix L on the main diagonal contains ones
         L[id_vector[i]][i] = 1.0;
     }
+}
+
+void LU_solve(int nodes_x, const int *id_vector, double *const *A, double *const *L, const double *b, double *x)
+{
+    int i, j;
+    double sum;
+    auto *y = new double[nodes_x];
+
+    /**
+     * determining the vector y
+     * */
+    for(i = 0; i < nodes_x; i++)
+    {
+        sum = 0.0;
+        j = i;
+        while(j > 0)
+        {
+            sum += L[id_vector[i]][j - 1] * y[j - 1];
+            j--;
+        }
+        y[i] = (b[id_vector[i]] - sum) / L[id_vector[i]][i];
+    }
+
+    /**
+     * determining the vector x
+     * */
+    for(i = nodes_x-1; i > -1; i--)
+    {
+        sum = 0.0;
+        j = nodes_x - 1;
+        while(j>i)
+        {
+            sum += A[id_vector[i]][j] * x[j];
+            j--;
+        }
+        x[i] = (y[i] - sum) / A[id_vector[i]][i];
+    }
+    delete[] y;
 }
 
 void lm_ta()
