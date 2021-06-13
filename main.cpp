@@ -79,9 +79,9 @@ void lm_ta()
     LM_TA_h_errors << "h max_err\n";
     LM_TA_t_errors << "t max_err\n";
 
-//    for(nodes_x = 22; nodes_x < 602; nodes_x += 10)
+    for(nodes_x = 26; nodes_x < 600; nodes_x += 10)
 //    for(nodes_x = 1001; nodes_x < 1002; nodes_x += 10)
-    for(nodes_x = 1001; nodes_x < 1002; nodes_x += 1)
+//    for(nodes_x = 20; nodes_x < 21; nodes_x += 1)
     {
         auto *u = new double[nodes_x - 1]; // upper diagonal of the tridiagonal  matrix
         auto *d = new double[nodes_x]; // principal (main) diagonal of the tridiagonal  matrix
@@ -102,13 +102,13 @@ void lm_ta()
         psi = get_psi();
         gamma = get_gamma();
 
-        for (k = 0; k < nodes_t; k++)
+        for (k = 0; k < nodes_t - 1; k++)
         {
             xi = X_MIN;
-            theta = get_theta(tk, dt);
+            theta = get_theta(tk+dt, dt);
 
-            d[0] = 1.0;
-            u[0] = 0.0;
+            d[0] = -alpha/h + beta;
+            u[0] = alpha/h;
             b[0] = -gamma;
 
             for (i = 1; i < nodes_x-1; i++)
@@ -120,9 +120,9 @@ void lm_ta()
                 b[i] = -y[i];
             }
 
-            d[nodes_x-1] = 1.0;
-            l[nodes_x-2] = 0.0;
-            b[nodes_x-1] = -theta;
+            d[nodes_x-1] = phi/h + psi;
+            l[nodes_x-2] = -phi/h;
+            b[nodes_x-1] = theta;
 
             determine_eta(eta, u, d, l, nodes_x); // determining the vector eta
 
@@ -131,31 +131,31 @@ void lm_ta()
             /**
              * data to plot numerical and analytical solutions for a few selected values of time t from the whole interval t - plotted when nodes_x = 1001
              * */
-             xi = X_MIN;
+//             xi = X_MIN;
 //            if (k == 0) // results for T_0
-//            if (k == 12500) // results for T=0.5
-//            if (k == 37500) // //results for T=1.5
-            if (k == ((nodes_t - 1)/2)) // results in the middle of the time interval
-            {
-                for (i=1; i<nodes_x-2; i++)
-                {
-                    xi += h;
-                    LM_TA_results << xi << " " << y[i] << " " << analytical_solution(tk+dt, xi) << "\n";
-                }
-            }
+//            if (k == ((nodes_t - 1)/4)) // results for T=0.5
+//            if (k == ((nodes_t - 1)/2)) // results in the middle of the time interval
+//            if (k == (((nodes_t - 1)/4)*3)) // //results for T=1.5
+//            {
+//                for (i=1; i<nodes_x-2; i++)
+//                {
+//                    xi += h;
+//                    LM_TA_results << xi << " " << y[i] << " " << analytical_solution(tk+dt, xi) << "\n";
+//                }
+//            }
 
             tk += dt;
 
             /**
              * results saved to file for plotting dependence of the maximum absolute value of the error observed for optimal h as a function of the time
              */
-            LM_TA_t_errors << tk << " " << find_max_error(tk, h, nodes_x, y) << "\n";
+//            LM_TA_t_errors << tk << " " << find_max_error(tk, h, nodes_x, y) << "\n";
         }
 
         /**
         * results saved to file for plotting dependence of the maximum absolute value of the error observed for T_MAX as a function of the spatial step h
         **/
-//        LM_TA_h_errors << log10(h) << " " << log10(find_max_error(T_MAX, h, nodes_x, y)) << "\n";
+        LM_TA_h_errors << log10(h) << " " << log10(find_max_error(T_MAX, h, nodes_x, y)) << "\n";
 
         delete[] u; delete[] d; delete[] l; delete[] b; delete[] eta; delete[] y;
     }
@@ -289,7 +289,7 @@ double get_phi() { return 0.0; }
 
 double get_psi() { return 1.0; }
 
-double get_theta(double tk, double dt) { return 1.0 - (rad / (rad + a)) * static_cast<double>(calerf::ERFCL(a / (2.0 * sqrt(D * (tk + dt))))); }
+double get_theta(double tk, double dt) { return 1.0 - (rad / (rad + a)) * static_cast<double>(calerf::ERFCL(a / (2.0 * sqrt(D * tk)))); }
 
 double find_max_error(double tk, double h, int nodes_x, const double *vector)
 {
