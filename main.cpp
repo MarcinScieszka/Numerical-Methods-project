@@ -50,8 +50,8 @@ void fill_matrix(double **matrix, int rows, int cols, double value);
 
 int main()
 {
-//    ftcs_method();
-    lm_ta();
+    ftcs_method();
+//    lm_ta();
 
     return 0;
 }
@@ -79,9 +79,8 @@ void lm_ta()
     LM_TA_h_errors << "h max_err\n";
     LM_TA_t_errors << "t max_err\n";
 
-    for(nodes_x = 26; nodes_x < 600; nodes_x += 10)
-//    for(nodes_x = 1001; nodes_x < 1002; nodes_x += 10)
-//    for(nodes_x = 20; nodes_x < 21; nodes_x += 1)
+//    for(nodes_x = 26; nodes_x < 600; nodes_x += 10)
+    for(nodes_x = 1001; nodes_x < 1002; nodes_x += 10)
     {
         auto *u = new double[nodes_x - 1]; // upper diagonal of the tridiagonal  matrix
         auto *d = new double[nodes_x]; // principal (main) diagonal of the tridiagonal  matrix
@@ -131,18 +130,18 @@ void lm_ta()
             /**
              * data to plot numerical and analytical solutions for a few selected values of time t from the whole interval t - plotted when nodes_x = 1001
              * */
-//             xi = X_MIN;
-//            if (k == 0) // results for T_0
+             xi = X_MIN;
+//            if (k == ((nodes_t - 1)/8)) // results for T=0.25
 //            if (k == ((nodes_t - 1)/4)) // results for T=0.5
 //            if (k == ((nodes_t - 1)/2)) // results in the middle of the time interval
-//            if (k == (((nodes_t - 1)/4)*3)) // //results for T=1.5
-//            {
-//                for (i=1; i<nodes_x-2; i++)
-//                {
-//                    xi += h;
-//                    LM_TA_results << xi << " " << y[i] << " " << analytical_solution(tk+dt, xi) << "\n";
-//                }
-//            }
+            if (k == (((nodes_t - 1)/4)*3)) // //results for T=1.5
+            {
+                for (i=1; i<nodes_x-2; i++)
+                {
+                    xi += h;
+                    LM_TA_results << xi << " " << y[i] << " " << analytical_solution(tk+dt, xi) << "\n";
+                }
+            }
 
             tk += dt;
 
@@ -226,8 +225,8 @@ void ftcs_method()
     FTCS_h_errors << "h max_err\n";
     FTCS_t_errors << "t max_err\n";
 
-//    for(nodes_x = 1001; nodes_x<1002; nodes_x+=50) // 1001 nodes -> h=0.01
-    for(nodes_x = 22; nodes_x<601; nodes_x+=10)
+    for(nodes_x = 1001; nodes_x<1002; nodes_x+=50) // 1001 nodes -> h=0.01
+//    for(nodes_x = 22; nodes_x<601; nodes_x+=10)
     {
         h = a / (nodes_x - 1);
         nodes_t = static_cast<int>((T_MAX-T_0) / ((lambda_dm * h * h) / D)) + 1;
@@ -248,11 +247,11 @@ void ftcs_method()
                 /**
                  * data to plot numerical and analytical solutions for a few selected values of time t from the whole interval t - plotted using 1001 x nodes
                  * */
-//                if (k == 0) // results for T_0
-//                if (k == 12500) // results for T=0.5
-//                if (k == 37500) // //results for T=1.5
+                if (k == ((nodes_t - 1)/8)) // results for T=0.25
+//                if (k == ((nodes_t - 1)/4)) // results for T=0.5
+//                if (k == (((nodes_t - 1)/4)*3)) // //results for T=1.5
 //                if (k == ((nodes_t - 1)/2)) // results in the middle of the time interval
-//                    {FTCS_results << xi << " " << res_u << " " << res_a << "\n";}
+                    {FTCS_results << xi << " " << res_u << " " << res_a << "\n";}
 
                 xi += h;
             }
@@ -263,7 +262,7 @@ void ftcs_method()
             /**
              * results saved to file for plotting dependence of the maximum absolute value of the error observed for optimal h as a function of the time
              */
-//            FTCS_t_errors << tk << " " << find_max_error(tk, h, nodes_x, u[k+1]) << "\n";
+            FTCS_t_errors << tk << " " << find_max_error(tk, h, nodes_x, u[k+1]) << "\n";
         }
 
         /**
