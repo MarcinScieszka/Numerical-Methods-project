@@ -56,8 +56,8 @@ void LU_solve(int nodes_x, const int *id_vector, double *const *A, double *const
 int main()
 {
 //    ftcs_method();
-//    lm_ta();
-    lm_lu();
+    lm_ta();
+//    lm_lu();
 
     return 0;
 }
@@ -274,11 +274,12 @@ void lm_ta()
         auto *eta = new double[nodes_x];
         auto *x = new double[nodes_x]; // solution vector
 
+        fill_array(x, nodes_x, get_initial_condition());
         h = a / (nodes_x - 1);
         nodes_t = static_cast<int>((T_MAX - T_0) / ((lambda_im * h * h) / D)) + 1;
         dt = T_MAX / (nodes_t - 1);
         tk = T_0;
-        fill_array(x, nodes_x, get_initial_condition());
+        xi = X_MIN;
 
         alpha = get_alpha();
         beta = get_beta();
@@ -286,29 +287,37 @@ void lm_ta()
         psi = get_psi();
         gamma = get_gamma();
 
+
+        d[0] = -alpha/h + beta;
+        u[0] = alpha/h;
+
+        for (i = 1; i < nodes_x-1; i++)
+        {
+            xi += h;
+            d[i] = -(1.0 + 2.0 * lambda_im);
+            u[i] = lambda_im * (1.0 + (h/xi));
+            l[i-1] = lambda_im * (1.0 - (h/xi));
+        }
+
+        d[nodes_x-1] = phi/h + psi;
+        l[nodes_x-2] = -phi/h;
+
+        determine_eta(eta, u, d, l, nodes_x); // determining the vector eta, once per given amount of x nodes
+
         for (k = 0; k < nodes_t - 1; k++)
         {
             xi = X_MIN;
             theta = get_theta(tk+dt, dt);
 
-            d[0] = -alpha/h + beta;
-            u[0] = alpha/h;
             b[0] = gamma;
 
             for (i = 1; i < nodes_x-1; i++)
             {
                 xi += h;
-                d[i] = -(1.0 + 2.0 * lambda_im);
-                u[i] = lambda_im * (1.0 + (h/xi));
-                l[i-1] = lambda_im * (1.0 - (h/xi));
                 b[i] = -x[i];
             }
 
-            d[nodes_x-1] = phi/h + psi;
-            l[nodes_x-2] = -phi/h;
             b[nodes_x-1] = theta;
-
-            determine_eta(eta, u, d, l, nodes_x); // determining the vector eta
 
             Thomas_algorithm(x, eta, u, l, b, nodes_x);
 
@@ -333,7 +342,7 @@ void lm_ta()
             /**
              * results saved to file for plotting dependence of the maximum absolute value of the error observed for optimal h as a function of the time
              */
-//            LM_TA_t_errors << tk << " " << find_max_error(tk, h, nodes_x, x) << "\n";
+            LM_TA_t_errors << tk << " " << find_max_error(tk, h, nodes_x, x) << "\n";
         }
 
         /**
@@ -341,7 +350,12 @@ void lm_ta()
         **/
         LM_TA_h_errors << log10(h) << " " << log10(find_max_error(T_MAX, h, nodes_x, x)) << "\n";
 
-        delete[] u; delete[] d; delete[] l; delete[] b; delete[] eta; delete[] x;
+        delete[] u;
+        delete[] d;
+        delete[] l;
+        delete[] b;
+        delete[] eta;
+        delete[] x;
     }
 
     LM_TA_results.close();
@@ -557,7 +571,7 @@ void free_matrix(double *const *matrix, int rows)
 {
     for(int i=0; i<rows; ++i)
     {
-        delete [] matrix[i];
+        delete[] matrix[i];
     }
     delete[] matrix;
 }
