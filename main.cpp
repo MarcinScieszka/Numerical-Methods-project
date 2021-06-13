@@ -43,6 +43,7 @@ double get_psi();
 double get_theta(double tk, double dt);
 void determine_eta(double *eta, const double *u, const double *d, const double *l, int nodes_x);
 void Thomas_algorithm(double *x, const double *eta, const double *u, const double *l, const double *b, int nodes_x);
+void LU_decompose(int nodes_x, int *id_vector, double **A, double **L, double **U);
 double **allocate_matrix(int rows, int cols);
 void fill_matrix(double **matrix, int rows, int cols, double value);
 void print_matrix(double *const *matrix, int rows, int cols, int print_width=10);
@@ -74,12 +75,14 @@ void lm_lu()
     double phi, psi, theta;
     int i, k;
 
+    std::cout.setf(std::ios::fixed);
 
     nodes_x = 10;
 
     auto *id_vector = new int[nodes_x]; // indexes vector
     double **A = allocate_matrix(nodes_x, nodes_x);
     double **L = allocate_matrix(nodes_x, nodes_x);
+    double **U = allocate_matrix(nodes_x, nodes_x);
     auto *b = new double[nodes_x];
     auto *x = new double[nodes_x]; // solution vector
 
@@ -118,10 +121,77 @@ void lm_lu()
     A[nodes_x-1][nodes_x-2] = -phi/h; // last element of lower diagonal
     b[nodes_x-1] = theta;
 
-    print_matrix(A, nodes_x, nodes_x);
+
+    LU_decompose(nodes_x, id_vector, A, L, U);
 
     delete[] id_vector; delete[] b; delete[] x;
-    free_matrix(A, nodes_x); free_matrix(L, nodes_x);
+    free_matrix(A, nodes_x); free_matrix(L, nodes_x); free_matrix(U, nodes_x);
+}
+
+void LU_decompose(int nodes_x, int *id_vector, double **A, double **L, double **U)
+{
+    int i, j, k, l;
+    int swapped_row_id;
+    double max_val_candidate;
+    double max_val;
+    double temp;
+    double coefficient;
+
+    for(k = 0; k < nodes_x; k++)
+    {
+        if(A[k][k] == 0.0)
+        {
+            /**
+             * partial selection of a primary element by swapping indices in the index vector
+            */
+            max_val = 0.0;
+            for(l=k+1; l<nodes_x; l++)
+            {
+                //looking for the best candidate and its index for the swap
+                max_val_candidate = abs(A[l][k]); //value with the largest absolute value is selected in the column
+                if(max_val_candidate > max_val)
+                {
+                    max_val = max_val_candidate; //current maximum value
+                    swapped_row_id = l; //current row index of the primary element candidate
+                }
+            }
+            //after determining the largest absolute value, indices in the index vector are swapped:
+            temp = id_vector[k];
+            id_vector[k] = id_vector[swapped_row_id];
+            id_vector[swapped_row_id] = temp;
+        }
+
+        for(i = 0+k; i < nodes_x; i++)
+        {
+            for(j = 0+k; j < nodes_x; j++)
+            {
+                if(i==0)
+                {
+                    //row with the lowest id in each step is identical for matrix U
+                    U[i][j] = A[id_vector[i]][j]; //referencing the elements of a matrix via an index vector
+                }
+                else
+                {
+                    if(j == k && i > j)
+                    {
+                        //calculating coefficients of the matrix L, in each step there are nodes_x-(k+1) coefficients
+                        coefficient = A[id_vector[i]][j]/A[id_vector[k]][k]; //coefficient for a given row, in a given step, is a constant value
+                        L[id_vector[i]][k] = coefficient;
+                    }
+                    if(i > k)
+                    {
+                        //rows, whose values have already been determined, are skipped
+                        U[id_vector[i]][j] = A[id_vector[i]][j] - A[k][j] * coefficient;
+                    }
+                }
+            }
+        }
+    }
+    for(i = 0; i < nodes_x; i++)
+    {
+        //matrix L on the main diagonal contains ones
+        L[id_vector[i]][i] = 1.0;
+    }
 }
 
 void lm_ta()
