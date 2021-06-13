@@ -9,8 +9,8 @@
  *
  *  Algorithms used:
  *  - FTCS Explicit Method
+ *  - Laasonen method using Thomas algorithm (BTCS using TDMA)"
  *  - Laasonen method (Backward Time, Centered Space - BTCS Scheme) using LU decomposition
- *  - Laasonen method using Thomas algorithm (TDMA)"
  *
  *  Initial condition: U(x,0) = 1
  *  First boundary condition: U(rad,t) = 0
@@ -27,8 +27,9 @@ double const X_MAX = rad + a;
 double const lambda_dm = 0.4; // lambda value used for direct methods, NOTE: beware of numerical stability limitations - method stable only when lambda < 0.5
 double const lambda_im = 1.0; // lambda value used for for indirect methods, NOTE: lambda = D*(dt/h*h)
 
-void ftcs_method(); // Forward Time Centered Space Scheme
-void lm_ta(); // Laasonen method using Thomas algorithm
+void ftcs_method();
+void lm_ta();
+void lm_lu();
 double get_initial_condition();
 double get_first_boundary_condition();
 double get_second_boundary_condition(double tk, double dt);
@@ -41,23 +42,94 @@ double get_phi();
 double get_psi();
 double get_theta(double tk, double dt);
 void determine_eta(double *eta, const double *u, const double *d, const double *l, int nodes_x);
-void Thomas_algorithm(double *y, const double *eta, const double *u, const double *l, const double *b, int nodes_x);
+void Thomas_algorithm(double *x, const double *eta, const double *u, const double *l, const double *b, int nodes_x);
 double **allocate_matrix(int rows, int cols);
+void fill_matrix(double **matrix, int rows, int cols, double value);
+void print_matrix(double *const *matrix, int rows, int cols, int print_width=10);
 void free_matrix(double *const *matrix, int rows);
 void print_array(double *array, int size, int print_width=10);
 void fill_array(double *array, int size, double value);
-void fill_matrix(double **matrix, int rows, int cols, double value);
 
 int main()
 {
-    ftcs_method();
+//    ftcs_method();
 //    lm_ta();
+    lm_lu();
 
     return 0;
 }
 
+void lm_lu()
+{
+    /**
+     * Laasonen method using LU decomposition
+     *
+     * Ay = b => LUx = b => L(Ux) = b => Ly = b & Ux = y
+     * */
+
+    int nodes_x, nodes_t;
+    double h, dt;
+    double tk, xi;
+    double alpha, beta, gamma;
+    double phi, psi, theta;
+    int i, k;
+
+
+    nodes_x = 10;
+
+    auto *id_vector = new int[nodes_x]; // indexes vector
+    double **A = allocate_matrix(nodes_x, nodes_x);
+    double **L = allocate_matrix(nodes_x, nodes_x);
+    auto *b = new double[nodes_x];
+    auto *x = new double[nodes_x]; // solution vector
+
+    for (i=0; i<nodes_x; i++) {id_vector[i] = i;} // filling indexes vector with indexes
+    fill_matrix(A, nodes_x, nodes_x, 0.0);
+    fill_matrix(L, nodes_x, nodes_x, 0.0);
+    fill_array(x, nodes_x, get_initial_condition());
+
+    h = a / (nodes_x - 1);
+    nodes_t = static_cast<int>((T_MAX - T_0) / ((lambda_im * h * h) / D)) + 1;
+    dt = T_MAX / (nodes_t - 1);
+    tk = T_0;
+    xi = X_MIN;
+
+    alpha = get_alpha();
+    beta = get_beta();
+    phi = get_phi();
+    psi = get_psi();
+    gamma = get_gamma();
+    theta = get_theta(tk+dt, dt);
+
+    for (i=0; i<nodes_x-1; i++)
+    {
+        A[i][i] = -(1.0 + 2.0 * lambda_im); // main diagonal
+        A[i][i+1] = lambda_im * (1.0 + (h/xi)); // upper diagonal
+        A[i+1][i] = lambda_im * (1.0 - (h/xi)); // lower diagonal
+        b[i] = -x[i];
+        xi += h;
+    }
+
+    A[0][0] = -alpha/h + beta; // first element of main diagonal
+    A[0][1] = alpha/h; // first element of upper diagonal
+    b[0] = gamma;
+
+    A[nodes_x-1][nodes_x-1] = phi/h + psi; // last element of main diagonal
+    A[nodes_x-1][nodes_x-2] = -phi/h; // last element of lower diagonal
+    b[nodes_x-1] = theta;
+
+    print_matrix(A, nodes_x, nodes_x);
+
+    delete[] id_vector; delete[] b; delete[] x;
+    free_matrix(A, nodes_x); free_matrix(L, nodes_x);
+}
+
 void lm_ta()
 {
+    /**
+     * Laasonen method using Thomas algorithm
+     * */
+
     int nodes_x, nodes_t;
     double h, dt;
     double tk, xi;
@@ -87,13 +159,13 @@ void lm_ta()
         auto *l = new double[nodes_x - 1]; // lower diagonal of the tridiagonal  matrix
         auto *b = new double[nodes_x];
         auto *eta = new double[nodes_x];
-        auto *y = new double[nodes_x]; // solution vector
+        auto *x = new double[nodes_x]; // solution vector
 
         h = a / (nodes_x - 1);
         nodes_t = static_cast<int>((T_MAX - T_0) / ((lambda_im * h * h) / D)) + 1;
         dt = T_MAX / (nodes_t - 1);
         tk = T_0;
-        fill_array(y, nodes_x, get_initial_condition());
+        fill_array(x, nodes_x, get_initial_condition());
 
         alpha = get_alpha();
         beta = get_beta();
@@ -108,7 +180,7 @@ void lm_ta()
 
             d[0] = -alpha/h + beta;
             u[0] = alpha/h;
-            b[0] = -gamma;
+            b[0] = gamma;
 
             for (i = 1; i < nodes_x-1; i++)
             {
@@ -116,7 +188,7 @@ void lm_ta()
                 d[i] = -(1.0 + 2.0 * lambda_im);
                 u[i] = lambda_im * (1.0 + (h/xi));
                 l[i-1] = lambda_im * (1.0 - (h/xi));
-                b[i] = -y[i];
+                b[i] = -x[i];
             }
 
             d[nodes_x-1] = phi/h + psi;
@@ -125,7 +197,7 @@ void lm_ta()
 
             determine_eta(eta, u, d, l, nodes_x); // determining the vector eta
 
-            Thomas_algorithm(y, eta, u, l, b, nodes_x);
+            Thomas_algorithm(x, eta, u, l, b, nodes_x);
 
             /**
              * data to plot numerical and analytical solutions for a few selected values of time t from the whole interval t - plotted when nodes_x = 1001
@@ -139,7 +211,7 @@ void lm_ta()
                 for (i=1; i<nodes_x-2; i++)
                 {
                     xi += h;
-                    LM_TA_results << xi << " " << y[i] << " " << analytical_solution(tk+dt, xi) << "\n";
+                    LM_TA_results << xi << " " << x[i] << " " << analytical_solution(tk + dt, xi) << "\n";
                 }
             }
 
@@ -148,15 +220,15 @@ void lm_ta()
             /**
              * results saved to file for plotting dependence of the maximum absolute value of the error observed for optimal h as a function of the time
              */
-//            LM_TA_t_errors << tk << " " << find_max_error(tk, h, nodes_x, y) << "\n";
+//            LM_TA_t_errors << tk << " " << find_max_error(tk, h, nodes_x, x) << "\n";
         }
 
         /**
         * results saved to file for plotting dependence of the maximum absolute value of the error observed for T_MAX as a function of the spatial step h
         **/
-        LM_TA_h_errors << log10(h) << " " << log10(find_max_error(T_MAX, h, nodes_x, y)) << "\n";
+        LM_TA_h_errors << log10(h) << " " << log10(find_max_error(T_MAX, h, nodes_x, x)) << "\n";
 
-        delete[] u; delete[] d; delete[] l; delete[] b; delete[] eta; delete[] y;
+        delete[] u; delete[] d; delete[] l; delete[] b; delete[] eta; delete[] x;
     }
 
     LM_TA_results.close();
@@ -173,7 +245,7 @@ void determine_eta(double *eta, const double *u, const double *d, const double *
     }
 }
 
-void Thomas_algorithm(double *y, const double *eta, const double *u, const double *l, const double *b, int nodes_x)
+void Thomas_algorithm(double *x, const double *eta, const double *u, const double *l, const double *b, int nodes_x)
 {
     int i;
     auto *r = new double[nodes_x];
@@ -188,12 +260,12 @@ void Thomas_algorithm(double *y, const double *eta, const double *u, const doubl
     }
 
     /**
-     * determining the vector y
+     * determining the solution vector x
      * */
-    y[nodes_x-1] = (1.0/eta[nodes_x-1]) * r[nodes_x-1];
+    x[nodes_x - 1] = (1.0 / eta[nodes_x - 1]) * r[nodes_x - 1];
     for(i=nodes_x-2; i>=0; i--)
     {
-        y[i] = (1.0/eta[i]) * (r[i] - (u[i]*y[i+1]));
+        x[i] = (1.0 / eta[i]) * (r[i] - (u[i] * x[i + 1]));
     }
 
     delete[] r;
@@ -356,7 +428,8 @@ void fill_matrix(double **matrix, int rows, int cols, double value)
 
 void print_matrix(double *const *matrix, const int rows, const int cols, int print_width)
 {
-    for(int i=rows-1; i>=0; i--)
+//    for(int i=rows-1; i>=0; i--)
+    for(int i=0; i<rows; i++)
     {
         for(int j=0; j<cols; j++)
         {
