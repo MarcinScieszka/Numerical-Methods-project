@@ -94,8 +94,8 @@ void lm_lu()
 
 //    for(nodes_x = 10; nodes_x < 11; nodes_x += 10)
 //    for(nodes_x = 1001; nodes_x < 1002; nodes_x += 10)
-    for(nodes_x = 601; nodes_x < 602; nodes_x += 10)
-//    for(nodes_x = 21; nodes_x < 602; nodes_x += 10)
+//    for(nodes_x = 601; nodes_x < 602; nodes_x += 10)
+    for(nodes_x = 21; nodes_x < 602; nodes_x += 10)
     {
         double **A = allocate_matrix(nodes_x, nodes_x);
         double **L = allocate_matrix(nodes_x, nodes_x);
@@ -125,7 +125,7 @@ void lm_lu()
         A[0][0] = -alpha/h + beta; // first element of the main diagonal
         A[0][1] = alpha/h; // first element of the upper diagonal
 
-        for (i = 1; i < nodes_x - 1; i++)
+        for (i = 1; i <= nodes_x - 1; i++)
         {
             xi += h;
             A[i][i] = -(1.0 + 2.0*lambda_im); // main diagonal
@@ -157,7 +157,7 @@ void lm_lu()
              * results saved to a file for plotting numerical and analytical solutions for a few selected values of time t from the whole interval t - plotted when nodes_x = 1001
              * */
             xi = X_MIN;
-            if (k == ((nodes_t - 1)/8)) // results for T=0.25
+//            if (k == ((nodes_t - 1)/8)) // results for T=0.25
 //            if (k == ((nodes_t - 1)/4)) // results for T=0.5
 //            if (k == ((nodes_t - 1)/2)) // results in the middle of the time interval
 //            if (k == (((nodes_t - 1)/4)*3)) // //results for T=1.5
@@ -174,13 +174,13 @@ void lm_lu()
             /**
              * results saved to a file for plotting dependence of the maximum absolute value of the error observed for optimal h as a function of the time
              */
-            LM_LU_t_errors << tk << " " << find_max_error(tk, h, nodes_x, x) << "\n";
+//            LM_LU_t_errors << tk << " " << find_max_error(tk, h, nodes_x, x) << "\n";
         }
 
         /**
         * results saved to a file for plotting dependence of the maximum absolute value of the error observed for T_MAX as a function of the spatial step h
         **/
-//        LM_LU_h_errors << log10(h) << " " << log10(find_max_error(T_MAX, h, nodes_x, x)) << "\n";
+        LM_LU_h_errors << log10(h) << " " << log10(find_max_error(T_MAX, h, nodes_x, x)) << "\n";
 
         delete[] id_vector;
         delete[] b;
@@ -270,7 +270,7 @@ void LU_solve(int nodes_x, const int *id_vector, double *const *U, double *const
     double sum;
 
     /**
-     * determining the vector y
+     * determining the vector y with a forward substitution
      * */
     for(i = 0; i < nodes_x; i++)
     {
@@ -285,13 +285,13 @@ void LU_solve(int nodes_x, const int *id_vector, double *const *U, double *const
     }
 
     /**
-     * determining the vector x
+     * determining the vector x with a backward substitution
      * */
     for(i = nodes_x-1; i > -1; i--)
     {
         sum = 0.0;
         j = nodes_x - 1;
-        while(j>i)
+        while(j > i)
         {
             sum += U[id_vector[i]][j] * x[j];
             j--;
